@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAR Comms Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📻</text></svg>">
+  <style>
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-alt: #f1f5f9;
+      --border-color: #cbd5e1;
+      --border-focus: #3b82f6;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --accent-red: #dc2626;
+      --accent-red-hover: #b91c1c;
+      --accent-blue: #2563eb;
+      --accent-green: #16a34a;
+      --accent-amber: #d97706;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-full: 9999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation / Status Header */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 2px solid var(--border-color);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      font-size: 1.6rem;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Badges & Buttons */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.35rem 0.65rem;
+      border-radius: var(--radius-full);
+      background: var(--bg-surface-alt);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .status-badge.ready {
+      background: #ecfdf5;
+      color: #065f46;
+      border-color: #a7f3d0;
+    }
+
+    .status-badge.busy {
+      background: #eff6ff;
+      color: #1e40af;
+      border-color: #bfdbfe;
+    }
+
+    .status-badge.warning {
+      background: #fffbeb;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-badge.busy .status-dot {
+      animation: pulse 1s infinite;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.5rem 0.85rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      user-select: none;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--bg-surface-alt);
+      border-color: #94a3b8;
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-danger {
+      color: var(--accent-red);
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    /* Warning protocol Banner */
+    #protocol-warning {
+      display: none;
+      background: #fef2f2;
+      border-bottom: 2px solid #ef4444;
+      color: #991b1b;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    #protocol-warning a {
+      color: #7f1d1d;
+      font-weight: 700;
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* PTT & Input Card */
+    .control-card {
+      background: var(--bg-surface);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    /* Big Push-To-Talk Button */
+    .ptt-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      width: 100%;
+    }
+
+    .ptt-button {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      border: 5px solid #cbd5e1;
+      background: linear-gradient(145deg, #ffffff, #f1f5f9);
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+      outline: none;
+      box-shadow: 0 8px 16px -2px rgba(0, 0, 0, 0.12), inset 0 2px 4px rgba(255, 255, 255, 0.9);
+      transition: all 0.12s ease-out;
+      position: relative;
+    }
+
+    .ptt-button .mic-icon {
+      font-size: 3rem;
+      transition: transform 0.12s ease;
+    }
+
+    .ptt-button .ptt-label {
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #334155;
+    }
+
+    .ptt-button .ptt-sub {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    /* PTT Active State (Hold) */
+    .ptt-button.recording {
+      border-color: #ef4444;
+      background: linear-gradient(145deg, #dc2626, #b91c1c);
+      color: #ffffff;
+      box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.25), 0 8px 24px rgba(220, 38, 38, 0.4);
+      transform: scale(0.96);
+    }
+
+    .ptt-button.recording .mic-icon {
+      transform: scale(1.1);
+      animation: pulse 0.8s infinite alternate;
+    }
+
+    .ptt-button.recording .ptt-label,
+    .ptt-button.recording .ptt-sub {
+      color: #ffffff;
+    }
+
+    .ptt-instructions {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    kbd {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+    }
+
+    /* Manual Quick Text Bar */
+    .quick-text-bar {
+      width: 100%;
+      display: flex;
+      gap: 0.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .quick-text-input {
+      flex: 1;
+      padding: 0.65rem 0.9rem;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      background: var(--bg-surface);
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .quick-text-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    /* Feed & Log Section */
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 0.25rem;
+    }
+
+    .log-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .log-count {
+      font-size: 0.8rem;
+      background: #e2e8f0;
+      color: #334155;
+      padding: 0.15rem 0.5rem;
+      border-radius: var(--radius-full);
+      font-weight: 700;
+    }
+
+    .log-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      min-height: 200px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      background: var(--bg-surface);
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 3rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Entry Card */
+    .entry-card {
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.15rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      transition: border-color 0.15s ease;
+    }
+
+    .entry-card:hover {
+      border-color: #94a3b8;
+    }
+
+    .entry-card.transcribing {
+      border-color: #93c5fd;
+      background: #f8faff;
+    }
+
+    .entry-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+
+    .entry-timestamp {
+      font-weight: 800;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .entry-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .entry-btn-del {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+
+    .entry-btn-del:hover {
+      color: var(--accent-red);
+      background: #fee2e2;
+    }
+
+    /* Audio Player */
+    .audio-player-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg-surface-alt);
+      padding: 0.45rem 0.75rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid #e2e8f0;
+    }
+
+    .audio-player-container audio {
+      width: 100%;
+      height: 32px;
+      outline: none;
+    }
+
+    /* Transcript Box */
+    .transcript-box {
+      background: #f8fafc;
+      border-left: 3px solid var(--accent-blue);
+      padding: 0.5rem 0.75rem;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 0.95rem;
+      color: #1e293b;
+      line-height: 1.45;
+      font-weight: 500;
+    }
+
+    .transcript-box.placeholder {
+      font-style: italic;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Editable User Notes */
+    .entry-notes-box {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .entry-notes-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+    }
+
+    .entry-notes-input {
+      width: 100%;
+      border: 1px solid transparent;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.5rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: #0f172a;
+      resize: vertical;
+      min-height: 36px;
+      transition: all 0.15s ease;
+    }
+
+    .entry-notes-input:hover {
+      border-color: #cbd5e1;
+      background: #ffffff;
+    }
+
+    .entry-notes-input:focus {
+      border-color: var(--border-focus);
+      background: #ffffff;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    }
+
+    /* Settings & Offline Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-surface);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 500px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .modal-header {
+      padding: 1rem 1.25rem;
+      background: var(--bg-surface-alt);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-label {
+      font-size: 0.825rem;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    .form-select {
+      padding: 0.55rem;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      background: #fff;
+    }
+
+    .form-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-blue);
+      transition: width 0.2s ease;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      header {
+        padding: 0.6rem 0.85rem;
+      }
+      .brand-title {
+        font-size: 1rem;
+      }
+      .ptt-button {
+        width: 150px;
+        height: 150px;
+      }
+      .ptt-button .mic-icon {
+        font-size: 2.4rem;
+      }
+      main {
+        padding: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- file:// protocol warning banner -->
+  <div id="protocol-warning">
+    ⚠️ <strong>Browser Security Notice:</strong> This page is opened via <code>file://</code>. Modern web browsers strictly disable microphone access and Web Workers on local file URLs. Please run <strong><code>run.bat</code></strong> or serve via <code>http://localhost:8000</code> to enable dictation and AI transcription.
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <span class="brand-icon">📻</span>
+      <div>
+        <div class="brand-title">SAR Comms Log</div>
+        <div class="brand-subtitle">Field Audio & Dispatch Scratchpad</div>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div id="model-badge" class="status-badge busy" title="AI Model Status">
+        <span class="status-dot"></span>
+        <span id="model-badge-text">Initializing AI...</span>
+      </div>
+      <button id="btn-export-csv" class="btn" title="Export comms log to CSV">
+        <span>📥</span> Export CSV
+      </button>
+      <button id="btn-clear-log" class="btn btn-danger" title="Clear all logs">
+        <span>🗑️</span> Clear
+      </button>
+      <button id="btn-open-settings" class="btn" title="Settings & Offline Models">
+        <span>⚙️</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main>
+    <!-- Push-to-Talk (PTT) Card -->
+    <section class="control-card">
+      <div class="ptt-container">
+        <button id="ptt-btn" class="ptt-button" type="button" aria-label="Push to Talk" tabindex="0">
+          <span class="mic-icon">🎙️</span>
+          <span class="ptt-label" id="ptt-label">HOLD TO TALK</span>
+          <span class="ptt-sub" id="ptt-sub">Press &amp; Hold to Dictate</span>
+        </button>
+        <div class="ptt-instructions">
+          <span>💡 Or hold <kbd>Spacebar</kbd> anytime to record</span>
+        </div>
+      </div>
+
+      <!-- Quick Manual Text Note Bar -->
+      <form id="manual-entry-form" class="quick-text-bar">
+        <input 
+          type="text" 
+          id="manual-text-input" 
+          class="quick-text-input" 
+          placeholder="Or type a quick written log note here and press Enter..." 
+          autocomplete="off"
+        />
+        <button type="submit" class="btn" style="background:#1e293b; color:#fff; border-color:#1e293b;">
+          <span>➕</span> Log Note
+        </button>
+      </form>
+    </section>
+
+    <!-- Comms Feed -->
+    <section class="feed-section">
+      <div class="log-header">
+        <div class="log-title">
+          <span>Comms Scratchpad</span>
+          <span id="entry-count-badge" class="log-count">0</span>
+        </div>
+      </div>
+
+      <div id="feed-container" class="log-feed">
+        <div id="empty-state" class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <p style="font-weight: 600; color: #334155;">No Comms Logged Yet</p>
+          <p style="font-size: 0.85rem; margin-top: 0.35rem;">
+            Press &amp; hold the PTT mic button to dictate radio traffic, or type a written note above.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ Comms &amp; Model Settings</div>
+        <button id="modal-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="select-model">Whisper Transcription Model</label>
+          <select id="select-model" class="form-select">
+            <option value="Xenova/whisper-tiny.en">whisper-tiny.en (~39MB) - Fastest, Recommended</option>
+            <option value="Xenova/whisper-base.en">whisper-base.en (~74MB) - Higher Accuracy</option>
+          </select>
+          <div class="form-desc">
+            Models download once and remain cached in browser storage for 100% offline field operation.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Pre-cache Model for Offline Field Use</label>
+          <button id="btn-precache" class="btn" style="width: 100%; font-weight:700;">
+            📥 Download &amp; Cache Model Now
+          </button>
+          <div id="cache-progress-box" style="display:none; margin-top:0.5rem;">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.25rem;">
+              <span id="cache-progress-status">Downloading...</span>
+              <span id="cache-progress-percent">0%</span>
+            </div>
+            <div class="progress-bar-container">
+              <div id="cache-progress-bar" class="progress-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Storage &amp; Data Safety</label>
+          <div class="form-desc">
+            All audio recordings, auto-transcriptions, and user notes are stored locally in IndexedDB on this device.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IndexedDB and Comms Application Logic -->
+  <script type="module">
+    import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+
+    // Configure Transformers.js to use browser Cache API
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+
+    // Check file:// security warning
+    if (window.location.protocol === 'file:') {
+      document.getElementById('protocol-warning').style.display = 'block';
+    }
+
+    /* =========================================================================
+       1. IndexedDB Database Operations
+       ========================================================================= */
+    const DB_NAME = 'SAR_Comms_DB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'comms_entries';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+          }
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async function dbGetAllEntries() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function dbSaveEntry(entry) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put(entry);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function dbDeleteEntry(id) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function dbClearAll() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    /* =========================================================================
+       2. AI Model Pipeline (Whisper via Transformers.js)
+       ========================================================================= */
+    let currentModelId = localStorage.getItem('sar_whisper_model') || 'Xenova/whisper-tiny.en';
+    let transcriber = null;
+    let isModelLoading = false;
+
+    const modelBadge = document.getElementById('model-badge');
+    const modelBadgeText = document.getElementById('model-badge-text');
+
+    function updateModelBadge(status, label) {
+      modelBadge.className = `status-badge ${status}`;
+      modelBadgeText.textContent = label;
+    }
+
+    async function getTranscriber(progressCallback) {
+      if (transcriber && transcriber.modelId === currentModelId) {
+        return transcriber;
+      }
+      isModelLoading = true;
+      updateModelBadge('busy', `Loading ${currentModelId.split('/')[1]}...`);
+
+      try {
+        const pipe = await pipeline('automatic-speech-recognition', currentModelId, {
+          progress_callback: (p) => {
+            if (progressCallback) progressCallback(p);
+            if (p.status === 'progress' && p.file && p.file.endsWith('.onnx')) {
+              const pct = Math.round(p.progress || 0);
+              updateModelBadge('busy', `Loading Model ${pct}%`);
+            }
+          }
+        });
+        pipe.modelId = currentModelId;
+        transcriber = pipe;
+        isModelLoading = false;
+        updateModelBadge('ready', `AI Ready (${currentModelId.split('/')[1]})`);
+        return transcriber;
+      } catch (err) {
+        console.error('Failed to load transcription model:', err);
+        isModelLoading = false;
+        updateModelBadge('warning', 'Model Error');
+        throw err;
+      }
+    }
+
+    // Convert raw audio blob to 16kHz mono Float32Array required by Whisper
+    async function convertAudioBlobToFloat32(audioBlob) {
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      
+      let float32Data;
+      const targetSampleRate = 16000;
+      if (decodedBuffer.sampleRate !== targetSampleRate) {
+        // Resample using OfflineAudioContext with integer frame count
+        const frameCount = Math.max(1, Math.ceil(decodedBuffer.duration * targetSampleRate));
+        const offlineCtx = new OfflineAudioContext(1, frameCount, targetSampleRate);
+        const source = offlineCtx.createBufferSource();
+        source.buffer = decodedBuffer;
+        source.connect(offlineCtx.destination);
+        source.start(0);
+        const resampled = await offlineCtx.startRendering();
+        float32Data = resampled.getChannelData(0);
+      } else {
+        float32Data = decodedBuffer.getChannelData(0);
+      }
+      if (audioCtx.state !== 'closed') {
+        await audioCtx.close();
+      }
+      return float32Data;
+    }
+
+    async function transcribeAudio(audioBlob, entryId) {
+      try {
+        const pipe = await getTranscriber();
+        const audioData = await convertAudioBlobToFloat32(audioBlob);
+        const result = await pipe(audioData, {
+          chunk_length_s: 30,
+          stride_length_s: 5,
+          language: 'english',
+          task: 'transcribe'
+        });
+
+        const transcriptText = (result && result.text) ? result.text.trim() : '(No speech detected)';
+        
+        // Update entry in DB
+        const entries = await dbGetAllEntries();
+        const entry = entries.find(e => e.id === entryId);
+        if (entry) {
+          entry.transcript = transcriptText;
+          entry.isTranscribing = false;
+          // If user hasn't added notes yet, pre-populate user notes with transcript for easy editing
+          if (!entry.userNotes) {
+            entry.userNotes = transcriptText;
+          }
+          await dbSaveEntry(entry);
+          updateEntryCardInDOM(entry);
+        }
+      } catch (err) {
+        console.error('Transcription error:', err);
+        const entries = await dbGetAllEntries();
+        const entry = entries.find(e => e.id === entryId);
+        if (entry) {
+          entry.transcript = '(Transcription failed: ' + (err.message || 'Error') + ')';
+          entry.isTranscribing = false;
+          await dbSaveEntry(entry);
+          updateEntryCardInDOM(entry);
+        }
+      }
+    }
+
+    /* =========================================================================
+       3. Audio Capture & Push-to-Talk (PTT)
+       ========================================================================= */
+    let mediaRecorder = null;
+    let audioStream = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingStartTime = null;
+
+    const pttBtn = document.getElementById('ptt-btn');
+    const pttLabel = document.getElementById('ptt-label');
+    const pttSub = document.getElementById('ptt-sub');
+
+    async function initAudioStream() {
+      if (!audioStream) {
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+        } catch (err) {
+          console.error('Microphone access denied or error:', err);
+          alert('Microphone access is required for Push-to-Talk.\n\nNote: If opened as a local file (file://), browser security strictly forbids microphone access. Please use run.bat to launch via http://localhost.');
+          throw err;
+        }
+      }
+      return audioStream;
+    }
+
+    async function startRecording() {
+      if (isRecording) return;
+      try {
+        const stream = await initAudioStream();
+        audioChunks = [];
+        
+        // Pick best supported MIME type
+        let mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported('audio/webm')) {
+          if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+          else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+        }
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstart = () => {
+          isRecording = true;
+          recordingStartTime = Date.now();
+          pttBtn.classList.add('recording');
+          pttLabel.textContent = 'TRANSMITTING';
+          pttSub.textContent = 'Release when finished';
+        };
+
+        mediaRecorder.start(100);
+      } catch (e) {
+        console.error('Could not start recording:', e);
+      }
+    }
+
+    async function stopRecording() {
+      if (!isRecording || !mediaRecorder) return;
+      
+      const duration = (Date.now() - recordingStartTime) / 1000;
+      isRecording = false;
+      pttBtn.classList.remove('recording');
+      pttLabel.textContent = 'HOLD TO TALK';
+      pttSub.textContent = 'Press & Hold to Dictate';
+
+      mediaRecorder.onstop = async () => {
+        if (duration < 0.4) {
+          // Accidental quick click, ignore
+          return;
+        }
+
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
+        
+        // Create new entry
+        const entryId = 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        const now = new Date();
+        const newEntry = {
+          id: entryId,
+          timestamp: now.toISOString(),
+          displayTime: formatTime(now),
+          audioBlob: audioBlob,
+          transcript: '',
+          userNotes: '',
+          isTranscribing: true,
+          durationSec: duration.toFixed(1)
+        };
+
+        await dbSaveEntry(newEntry);
+        renderEntries();
+
+        // Trigger Whisper transcription in background
+        transcribeAudio(audioBlob, entryId);
+      };
+
+      mediaRecorder.stop();
+    }
+
+    // PTT Mouse Events
+    pttBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startRecording();
+    });
+    pttBtn.addEventListener('mouseup', (e) => {
+      e.preventDefault();
+      stopRecording();
+    });
+    pttBtn.addEventListener('mouseleave', () => {
+      if (isRecording) stopRecording();
+    });
+
+    // PTT Touch Events (Mobile/Tablet)
+    pttBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      startRecording();
+    }, { passive: false });
+    pttBtn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      stopRecording();
+    }, { passive: false });
+    pttBtn.addEventListener('touchcancel', () => {
+      if (isRecording) stopRecording();
+    });
+
+    // Spacebar PTT shortcut (when not typing in an input/textarea)
+    let spaceKeyDown = false;
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !spaceKeyDown) {
+        const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (tag !== 'input' && tag !== 'textarea') {
+          e.preventDefault();
+          spaceKeyDown = true;
+          startRecording();
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space' && spaceKeyDown) {
+        e.preventDefault();
+        spaceKeyDown = false;
+        stopRecording();
+      }
+    });
+
+    /* =========================================================================
+       4. Manual Written Log Entry
+       ========================================================================= */
+    const manualForm = document.getElementById('manual-entry-form');
+    const manualInput = document.getElementById('manual-text-input');
+
+    manualForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = manualInput.value.trim();
+      if (!text) return;
+
+      const now = new Date();
+      const newEntry = {
+        id: 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        timestamp: now.toISOString(),
+        displayTime: formatTime(now),
+        audioBlob: null,
+        transcript: '',
+        userNotes: text,
+        isTranscribing: false,
+        durationSec: null
+      };
+
+      await dbSaveEntry(newEntry);
+      manualInput.value = '';
+      renderEntries();
+    });
+
+    /* =========================================================================
+       5. Feed Rendering & UI Management
+       ========================================================================= */
+    const feedContainer = document.getElementById('feed-container');
+    const emptyState = document.getElementById('empty-state');
+    const entryCountBadge = document.getElementById('entry-count-badge');
+
+    function formatTime(dateObj) {
+      const d = (typeof dateObj === 'string') ? new Date(dateObj) : dateObj;
+      const hours = String(d.getHours()).padStart(2, '0');
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      const secs = String(d.getSeconds()).padStart(2, '0');
+      return `${hours}:${mins}:${secs}`;
+    }
+
+    function createEntryCardHTML(entry) {
+      const audioPlayerHtml = entry.audioBlob ? `
+        <div class="audio-player-container">
+          <audio controls src="${URL.createObjectURL(entry.audioBlob)}"></audio>
+          ${entry.durationSec ? `<span style="font-size:0.75rem; color:#64748b; font-weight:600;">${entry.durationSec}s</span>` : ''}
+        </div>
+      ` : '';
+
+      const transcriptHtml = entry.audioBlob ? `
+        ${entry.isTranscribing ? `
+          <div class="transcript-box placeholder">
+            <span class="status-dot" style="background:#2563eb; width:8px; height:8px; border-radius:50%; animation:pulse 0.8s infinite;"></span>
+            Transcribing radio audio with ${currentModelId.split('/')[1]}...
+          </div>
+        ` : `
+          <div class="transcript-box">
+            <strong>Auto-Transcript:</strong> ${escapeHtml(entry.transcript || '(No transcript)')}
+          </div>
+        `}
+      ` : '';
+
+      return `
+        <article class="entry-card ${entry.isTranscribing ? 'transcribing' : ''}" id="card-${entry.id}">
+          <div class="entry-meta">
+            <div class="entry-timestamp">
+              <span>🕒</span> ${entry.displayTime}
+              ${entry.audioBlob ? `<span style="margin-left:0.35rem; font-size:0.75rem; background:#e0f2fe; color:#0369a1; padding:0.1rem 0.4rem; border-radius:4px;">VOICE</span>` : `<span style="margin-left:0.35rem; font-size:0.75rem; background:#f1f5f9; color:#475569; padding:0.1rem 0.4rem; border-radius:4px;">MANUAL</span>`}
+            </div>
+            <div class="entry-actions">
+              <button class="entry-btn-del" data-action="delete" data-id="${entry.id}" title="Delete entry">✕</button>
+            </div>
+          </div>
+
+          ${audioPlayerHtml}
+          ${transcriptHtml}
+
+          <div class="entry-notes-box">
+            <label class="entry-notes-label" for="notes-${entry.id}">Log Note / Edited Transcript</label>
+            <textarea 
+              id="notes-${entry.id}"
+              class="entry-notes-input"
+              data-id="${entry.id}"
+              placeholder="Click to edit transcript or add field notes..."
+              rows="1"
+            >${escapeHtml(entry.userNotes || '')}</textarea>
+          </div>
+        </article>
+      `;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    async function renderEntries() {
+      const entries = await dbGetAllEntries();
+      // Sort newest at the top
+      entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      entryCountBadge.textContent = entries.length;
+
+      if (entries.length === 0) {
+        feedContainer.innerHTML = '';
+        feedContainer.appendChild(emptyState);
+        return;
+      }
+
+      feedContainer.innerHTML = entries.map(createEntryCardHTML).join('');
+
+      // Auto-resize textareas and wire up change listeners
+      feedContainer.querySelectorAll('.entry-notes-input').forEach(textarea => {
+        autoResizeTextarea(textarea);
+        textarea.addEventListener('input', () => {
+          autoResizeTextarea(textarea);
+        });
+        textarea.addEventListener('change', async (e) => {
+          const id = e.target.getAttribute('data-id');
+          const value = e.target.value;
+          const all = await dbGetAllEntries();
+          const target = all.find(item => item.id === id);
+          if (target) {
+            target.userNotes = value;
+            await dbSaveEntry(target);
+          }
+        });
+      });
+
+      // Wire delete buttons
+      feedContainer.querySelectorAll('[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          if (confirm('Delete this comms entry?')) {
+            await dbDeleteEntry(id);
+            renderEntries();
+          }
+        });
+      });
+    }
+
+    function autoResizeTextarea(el) {
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight) + 'px';
+    }
+
+    function updateEntryCardInDOM(entry) {
+      const existing = document.getElementById(`card-${entry.id}`);
+      if (existing) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = createEntryCardHTML(entry);
+        const newCard = tempDiv.firstElementChild;
+        existing.replaceWith(newCard);
+
+        // Wire listener on updated card
+        const textarea = newCard.querySelector('.entry-notes-input');
+        if (textarea) {
+          autoResizeTextarea(textarea);
+          textarea.addEventListener('input', () => autoResizeTextarea(textarea));
+          textarea.addEventListener('change', async (e) => {
+            const all = await dbGetAllEntries();
+            const target = all.find(item => item.id === entry.id);
+            if (target) {
+              target.userNotes = e.target.value;
+              await dbSaveEntry(target);
+            }
+          });
+        }
+
+        const delBtn = newCard.querySelector('[data-action="delete"]');
+        if (delBtn) {
+          delBtn.addEventListener('click', async () => {
+            if (confirm('Delete this comms entry?')) {
+              await dbDeleteEntry(entry.id);
+              renderEntries();
+            }
+          });
+        }
+      } else {
+        renderEntries();
+      }
+    }
+
+    /* =========================================================================
+       6. Export CSV and Clear Log
+       ========================================================================= */
+    document.getElementById('btn-export-csv').addEventListener('click', async () => {
+      const entries = await dbGetAllEntries();
+      if (entries.length === 0) {
+        alert('Comms scratchpad is empty.');
+        return;
+      }
+
+      // Sort chronological for formal log export
+      entries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      let csv = 'Entry,Timestamp,Type,Duration(s),Auto_Transcript,User_Notes\r\n';
+      entries.forEach((e, index) => {
+        const entryNum = index + 1;
+        const time = e.displayTime || '';
+        const type = e.audioBlob ? 'VOICE' : 'MANUAL';
+        const dur = e.durationSec || '';
+        const transcript = `"${(e.transcript || '').replace(/"/g, '""')}"`;
+        const notes = `"${(e.userNotes || '').replace(/"/g, '""')}"`;
+        csv += `${entryNum},${time},${type},${dur},${transcript},${notes}\r\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `SAR_Comms_Log_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btn-clear-log').addEventListener('click', async () => {
+      const entries = await dbGetAllEntries();
+      if (entries.length === 0) return;
+      if (confirm(`Clear all ${entries.length} log entries from the scratchpad?\n\nTip: You can export to CSV first before clearing.`)) {
+        await dbClearAll();
+        renderEntries();
+      }
+    });
+
+    /* =========================================================================
+       7. Settings Modal & Offline Model Pre-caching
+       ========================================================================= */
+    const settingsModal = document.getElementById('settings-modal');
+    const btnOpenSettings = document.getElementById('btn-open-settings');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const selectModel = document.getElementById('select-model');
+    const btnPrecache = document.getElementById('btn-precache');
+    const cacheProgressBox = document.getElementById('cache-progress-box');
+    const cacheProgressBar = document.getElementById('cache-progress-bar');
+    const cacheProgressStatus = document.getElementById('cache-progress-status');
+    const cacheProgressPercent = document.getElementById('cache-progress-percent');
+
+    selectModel.value = currentModelId;
+
+    btnOpenSettings.addEventListener('click', () => {
+      settingsModal.classList.add('active');
+    });
+
+    modalCloseBtn.addEventListener('click', () => {
+      settingsModal.classList.remove('active');
+    });
+
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) settingsModal.classList.remove('active');
+    });
+
+    selectModel.addEventListener('change', async (e) => {
+      currentModelId = e.target.value;
+      localStorage.setItem('sar_whisper_model', currentModelId);
+      transcriber = null; // reset to re-load on next speech
+      updateModelBadge('ready', `Model set to ${currentModelId.split('/')[1]}`);
+    });
+
+    btnPrecache.addEventListener('click', async () => {
+      btnPrecache.disabled = true;
+      cacheProgressBox.style.display = 'block';
+      cacheProgressBar.style.width = '0%';
+      cacheProgressStatus.textContent = 'Connecting to model repository...';
+      cacheProgressPercent.textContent = '0%';
+
+      try {
+        await getTranscriber((p) => {
+          if (p.status === 'progress') {
+            const pct = Math.round(p.progress || 0);
+            cacheProgressBar.style.width = pct + '%';
+            cacheProgressPercent.textContent = pct + '%';
+            cacheProgressStatus.textContent = `Downloading ${p.file || 'model files'}...`;
+          } else if (p.status === 'done') {
+            cacheProgressStatus.textContent = `Loaded ${p.file || ''}`;
+          }
+        });
+
+        cacheProgressBar.style.width = '100%';
+        cacheProgressPercent.textContent = '100%';
+        cacheProgressStatus.textContent = 'Model successfully cached in browser storage for offline use!';
+        alert('Whisper model is fully cached! The web app will now transcribe offline in the field without internet.');
+      } catch (err) {
+        cacheProgressStatus.textContent = 'Failed to download model: ' + err.message;
+      } finally {
+        btnPrecache.disabled = false;
+      }
+    });
+
+    /* =========================================================================
+       8. Initial Application Boot
+       ========================================================================= */
+    async function initApp() {
+      await renderEntries();
+
+      // Pre-warm AI pipeline in background if online
+      if (navigator.onLine) {
+        getTranscriber().catch(e => {
+          console.log('Background model pre-warm skipped or offline:', e);
+          updateModelBadge('ready', `Ready (${currentModelId.split('/')[1]})`);
+        });
+      } else {
+        updateModelBadge('ready', 'Offline Mode');
+      }
+    }
+
+    initApp();
+  </script>
+</body>
+</html>
